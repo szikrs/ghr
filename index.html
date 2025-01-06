@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>موقع حفظ الرسائل والصور</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            direction: rtl;
+            text-align: right;
+            background: linear-gradient(135deg, #ff7e5f, #feb47b); /* خلفية متدرجة */
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+        .message-box {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid #ff6f61;
+            border-radius: 10px;
+            font-size: 16px;
+            color: #333;
+            background-color: #fff;
+        }
+
+        .file-input {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #ff6f61;
+        }
+
+        .messages-container {
+            margin-top: 20px;
+        }
+
+        .message-item {
+            background-color: #f9f9f9;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .message-item:hover {
+            transform: scale(1.05);
+        }
+
+        .message-item img {
+            max-width: 100px;
+            margin-left: 20px;
+            border-radius: 8px;
+        }
+
+        .message-item button {
+            background-color: #ff6f61; /* لون الزر */
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            color: white;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+        .message-item button:hover {
+            background-color: #ff4b3a; /* تأثير التمرير */
+        }
+
+        .download-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .date {
+            font-size: 12px;
+            color: gray;
+        }
+
+        .container button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .container button:hover {
+            background-color: #218838;
+        }
+        
+        .delete-code {
+            color: #ff4b3a;
+            font-weight: bold;
+            font-size: 20px;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .delete-code:hover {
+            color: #d43f3a;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>أرسل رسالتك مع صورة</h2>
+        <textarea id="message" class="message-box" placeholder="أكتب رسالتك هنا..."></textarea><br>
+        <input type="file" id="image" class="file-input" accept="image/*"><br>
+        <button onclick="saveMessage()">حفظ الرسالة</button>
+        
+        <div class="messages-container" id="messages-container">
+            <h3>الرسائل المحفوظة:</h3>
+            <!-- سيتم عرض الرسائل والصور هنا -->
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+
+    <script>
+        // إعداد Firebase
+        const firebaseConfig = {
+            apiKey: "API_KEY",
+            authDomain: "PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://PROJECT_ID.firebaseio.com",
+            projectId: "PROJECT_ID",
+            storageBucket: "PROJECT_ID.appspot.com",
+            messagingSenderId: "SENDER_ID",
+            appId: "APP_ID"
+        };
+        
+        const app = firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+        const database = firebase.database();
+
+        // حفظ الرسالة والصورة في Firebase
+        function saveMessage() {
+            let message = document.getElementById('message').value;
+            let imageFile = document.getElementById('image').files[0];
+
+            if (message === "" && !imageFile) {
+                alert("يرجى إضافة رسالة أو صورة!");
+                return;
+            }
+
+            let imageUrl = "";
+            if (imageFile) {
+                let storageRef = storage.ref('images/' + imageFile.name);
+                storageRef.put(imageFile).then(snapshot => {
+                    snapshot.ref.getDownloadURL().then(downloadURL => {
+                        imageUrl = downloadURL;
+                        saveMessageToDatabase(message, imageUrl);
+                    });
+                });
+            } else {
+                saveMessageToDatabase(message, imageUrl);
+            }
+
+            document.getElementById('message').value = "";
+            document.getElementById('image').value = "";
+        }
+
+        function saveMessageToDatabase(message, imageUrl) {
+            let timestamp = new Date().toLocaleString();
+            let newMessage = {
+                message,
+                image: imageUrl,
+                timestamp
+            };
+
+            const messageRef = database.ref('messages').push();
+            messageRef.set(newMessage)
+                .then(() => {
+                    displayMessages();
+                    updateURL();
+                });
+        }
+
+        // عرض الرسائل المحفوظة
+        function displayMessages() {
+            let messagesContainer = document.getElementById('messages-container');
+            messagesContainer.innerHTML = "<h3>الرسائل المحفوظة:</h3>";
+
+            const messagesRef = database.ref('messages');
+            messagesRef.once('value', snapshot => {
+                snapshot.forEach(childSnapshot => {
+                    let msg = childSnapshot.val();
+                    let messageDiv = document.createElement('div');
+                    messageDiv.classList.add('message-item');
+                    messageDiv.innerHTML = `
+                        <div>
+                            <div>${msg.message}</div>
+                            ${msg.image ? `<img src="${msg.image}" alt="image">` : ''}
+                            <div class="date">تاريخ النشر: ${msg.timestamp}</div>
+                        </div>
+                    `;
+                    messagesContainer.appendChild(messageDiv);
+                });
+            });
+        }
+
+        // تحديث الرابط مع البيانات
+        function updateURL() {
+            let link = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            history.pushState({ path: link }, "", link);
+        }
+
+        window.onload = function() {
+            displayMessages(); // عرض الرسائل عند تحميل الصفحة
+        };
+    </script>
+
+</body>
+</html>
